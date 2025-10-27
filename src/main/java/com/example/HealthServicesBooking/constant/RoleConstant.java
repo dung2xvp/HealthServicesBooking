@@ -1,11 +1,12 @@
 package com.example.HealthServicesBooking.constant;
 
 public class RoleConstant {
-    public static final String ROLE_ADMIN = "ROLE_ADMIN";
-    public static final String ROLE_DOCTOR = "ROLE_DOCTOR";
-    public static final String ROLE_PATIENT = "ROLE_PATIENT";
-
+    public static final String ADMIN = "ROLE_ADMIN";
+    public static final String DOCTOR = "ROLE_DOCTOR";
+    public static final String PATIENT = "ROLE_PATIENT";
+    
     private RoleConstant() {
-        // Private constructor to prevent instantiation
+        throw new UnsupportedOperationException("This is a utility class and cannot be instantiated");
     }
 }
+

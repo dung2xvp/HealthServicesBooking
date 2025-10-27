@@ -1,16 +1,15 @@
 package com.example.HealthServicesBooking.service;
 
-import com.example.HealthServicesBooking.dto.Request.*;
-import com.example.HealthServicesBooking.dto.Response.LoginResponse;
-import com.example.HealthServicesBooking.dto.Response.UserResponse;
-import com.example.HealthServicesBooking.entity.RefreshToken;
-import com.example.HealthServicesBooking.entity.Role;
-import com.example.HealthServicesBooking.entity.User;
+import com.example.HealthServicesBooking.constant.MessageConstant;
+import com.example.HealthServicesBooking.constant.RoleConstant;
+import com.example.HealthServicesBooking.dto.request.*;
+import com.example.HealthServicesBooking.dto.response.LoginResponse;
+import com.example.HealthServicesBooking.dto.response.UserResponse;
+import com.example.HealthServicesBooking.entity.*;
 import com.example.HealthServicesBooking.exception.BadRequestException;
 import com.example.HealthServicesBooking.exception.ResourceNotFoundException;
 import com.example.HealthServicesBooking.exception.UnauthorizedException;
-import com.example.HealthServicesBooking.repository.RoleRepository;
-import com.example.HealthServicesBooking.repository.UserRepository;
+import com.example.HealthServicesBooking.repository.*;
 import com.example.HealthServicesBooking.security.CustomUserDetails;
 import com.example.HealthServicesBooking.security.jwt.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
@@ -26,307 +25,209 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Random;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class AuthService {
-
+    
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
+    private final DoctorRepository doctorRepository;
+    private final PatientRepository patientRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider tokenProvider;
     private final RefreshTokenService refreshTokenService;
     private final EmailService emailService;
-
+    
     @Value("${app.verification.code.expiration}")
-    private Long verificationCodeExpirationMs;
-
-    /**
-     * Login user and return JWT token with refresh token
-     */
+    private Long verificationCodeExpiration;
+    
+    @Transactional
+    public UserResponse register(RegisterRequest request) {
+        // Validate email
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw new BadRequestException(MessageConstant.EMAIL_ALREADY_EXISTS);
+        }
+        
+        // Validate phone number
+        if (request.getPhoneNumber() != null && userRepository.existsByPhoneNumber(request.getPhoneNumber())) {
+            throw new BadRequestException(MessageConstant.PHONE_ALREADY_EXISTS);
+        }
+        
+        // Get role
+        String roleName = request.getRole().equalsIgnoreCase("DOCTOR") 
+                ? RoleConstant.DOCTOR 
+                : RoleConstant.PATIENT;
+        Role role = roleRepository.findByName(roleName)
+                .orElseThrow(() -> new ResourceNotFoundException(MessageConstant.ROLE_NOT_FOUND));
+        
+        // Generate verification code
+        String verificationCode = generateVerificationCode();
+        
+        // Create user
+        User user = User.builder()
+                .email(request.getEmail())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .fullName(request.getFullName())
+                .phoneNumber(request.getPhoneNumber())
+                .role(role)
+                .isEmailVerified(false)
+                .isActive(true)
+                .emailVerificationCode(verificationCode)
+                .emailVerificationExpiry(LocalDateTime.now().plusSeconds(verificationCodeExpiration / 1000))
+                .build();
+        
+        user = userRepository.save(user);
+        
+        // Create profile based on role
+        if (roleName.equals(RoleConstant.DOCTOR)) {
+            Doctor doctor = Doctor.builder()
+                    .user(user)
+                    .isAvailable(false) // Will be set to true after admin approval
+                    .build();
+            doctorRepository.save(doctor);
+        } else {
+            Patient patient = Patient.builder()
+                    .user(user)
+                    .build();
+            patientRepository.save(patient);
+        }
+        
+        // Send verification email
+        emailService.sendVerificationEmail(user.getEmail(), verificationCode);
+        
+        return UserResponse.fromUser(user);
+    }
+    
     @Transactional
     public LoginResponse login(LoginRequest request) {
-        log.info("Login attempt for user: {}", request.getUsername());
-
         // Authenticate user
         Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        request.getUsername(),
-                        request.getPassword()
-                )
+                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
         );
-
+        
         SecurityContextHolder.getContext().setAuthentication(authentication);
-
-        // Generate JWT access token
+        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+        
+        // Check if email is verified
+        if (!userDetails.isEmailVerified()) {
+            throw new UnauthorizedException(MessageConstant.EMAIL_NOT_VERIFIED);
+        }
+        
+        // Check if account is active
+        if (!userDetails.isActive()) {
+            throw new UnauthorizedException(MessageConstant.ACCOUNT_INACTIVE);
+        }
+        
+        // Generate tokens
         String accessToken = tokenProvider.generateToken(authentication);
-
-        // Get user info with roles
-        User user = userRepository.findByUsernameWithRoles(request.getUsername())
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-
-        // Create refresh token
-        RefreshToken refreshToken = refreshTokenService.createRefreshToken(user.getId());
-
+        RefreshToken refreshToken = refreshTokenService.createRefreshToken(userDetails.getId());
+        
+        User user = userRepository.findById(userDetails.getId())
+                .orElseThrow(() -> new ResourceNotFoundException(MessageConstant.USER_NOT_FOUND));
+        
         return LoginResponse.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken.getToken())
-                .tokenType("Bearer")
-                .user(convertToUserResponse(user))
+                .user(UserResponse.fromUser(user))
                 .build();
     }
-
-    /**
-     * Refresh access token using refresh token
-     */
-    @Transactional
-    public LoginResponse refreshToken(RefreshTokenRequest request) {
-        log.info("Refresh token request");
-
-        // Find and verify refresh token
-        RefreshToken refreshToken = refreshTokenService.findByToken(request.getRefreshToken());
-        refreshTokenService.verifyExpiration(refreshToken);
-
-        // Get user with roles
-        User user = userRepository.findByUsernameWithRoles(refreshToken.getUser().getUsername())
-                .orElseThrow(() -> new UnauthorizedException("User not found"));
-
-        // Check if user is still active
-        if (!user.getIsActive()) {
-            throw new UnauthorizedException("User account is disabled");
-        }
-
-        // Generate new access token
-        CustomUserDetails userDetails = CustomUserDetails.build(user);
-        Authentication authentication = new UsernamePasswordAuthenticationToken(
-                userDetails, null, userDetails.getAuthorities()
-        );
-        String newAccessToken = tokenProvider.generateToken(authentication);
-
-        return LoginResponse.builder()
-                .accessToken(newAccessToken)
-                .refreshToken(refreshToken.getToken())
-                .tokenType("Bearer")
-                .user(convertToUserResponse(user))
-                .build();
-    }
-
-    /**
-     * Logout user by deleting refresh token
-     */
-    @Transactional
-    public void logout(String userId) {
-        log.info("Logout request for user: {}", userId);
-        refreshTokenService.deleteByUserId(userId);
-    }
-
-    /**
-     * Register new user
-     */
-    @Transactional
-    public UserResponse register(RegisterRequest request) {
-        log.info("Registration attempt for username: {}", request.getUsername());
-
-        // Validate username
-        if (userRepository.existsByUsername(request.getUsername())) {
-            throw new BadRequestException("Username already exists!");
-        }
-
-        // Validate email
-        if (userRepository.existsByEmail(request.getEmail())) {
-            throw new BadRequestException("Email already exists!");
-        }
-
-        // Create new user
-        User user = new User();
-        user.setUsername(request.getUsername());
-        user.setEmail(request.getEmail());
-        user.setPassword(passwordEncoder.encode(request.getPassword()));
-        user.setFullname(request.getFullname());
-        user.setMobile(request.getMobile());
-        user.setGender(request.getGender());
-        user.setAddress(request.getAddress());
-        user.setBirthday(request.getBirthday());
-        user.setBadPoint(0);
-        
-        // Calculate age from birthday
-        user.calculateAge();
-
-        // Generate verification code
-        String verificationCode = generateVerificationCode();
-        user.setCode(verificationCode);
-        user.setCodeExpiryDate(LocalDateTime.now().plusSeconds(verificationCodeExpirationMs / 1000));
-        user.setEmailVerified(false);
-
-        // Assign default role (PATIENT)
-        Role patientRole = roleRepository.findByName("ROLE_PATIENT")
-                .orElseThrow(() -> new ResourceNotFoundException("Default role not found"));
-        user.addRole(patientRole);
-
-        // Save user (timestamps and isActive will be set by @PrePersist)
-        User savedUser = userRepository.save(user);
-
-        log.info("User registered successfully: {}", savedUser.getUsername());
-
-        // Send verification email with code
-        emailService.sendVerificationEmail(savedUser.getEmail(), savedUser.getFullname(), verificationCode);
-
-        return convertToUserResponse(savedUser);
-    }
-
-    /**
-     * Verify email with code
-     */
+    
     @Transactional
     public void verifyEmail(VerifyEmailRequest request) {
-        log.info("Email verification attempt for: {}", request.getEmail());
-
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + request.getEmail()));
-
-        // Check if already verified
-        if (user.getEmailVerified()) {
-            throw new BadRequestException("Email is already verified");
+                .orElseThrow(() -> new ResourceNotFoundException(MessageConstant.USER_NOT_FOUND));
+        
+        if (user.getIsEmailVerified()) {
+            throw new BadRequestException(MessageConstant.EMAIL_ALREADY_VERIFIED);
         }
-
-        // Check verification code
-        if (user.getCode() == null || !user.getCode().equals(request.getCode())) {
-            throw new BadRequestException("Invalid verification code");
+        
+        if (user.getEmailVerificationCode() == null || 
+            !user.getEmailVerificationCode().equals(request.getCode())) {
+            throw new BadRequestException(MessageConstant.INVALID_VERIFICATION_CODE);
         }
-
-        // Check if code expired
-        if (user.getCodeExpiryDate().isBefore(LocalDateTime.now())) {
-            throw new BadRequestException("Verification code has expired. Please request a new code");
+        
+        if (user.getEmailVerificationExpiry().isBefore(LocalDateTime.now())) {
+            throw new BadRequestException(MessageConstant.INVALID_VERIFICATION_CODE);
         }
-
-        // Verify email
-        user.setEmailVerified(true);
-        user.setCode(null);
-        user.setCodeExpiryDate(null);
+        
+        user.setIsEmailVerified(true);
+        user.setEmailVerificationCode(null);
+        user.setEmailVerificationExpiry(null);
         userRepository.save(user);
-
-        log.info("Email verified successfully for: {}", request.getEmail());
-
-        // Send welcome email
-        emailService.sendWelcomeEmail(user.getEmail(), user.getFullname());
     }
-
-    /**
-     * Resend verification code
-     */
+    
     @Transactional
     public void resendVerificationCode(ResendCodeRequest request) {
-        log.info("Resend verification code request for: {}", request.getEmail());
-
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + request.getEmail()));
-
-        // Check if already verified
-        if (user.getEmailVerified()) {
-            throw new BadRequestException("Email is already verified");
+                .orElseThrow(() -> new ResourceNotFoundException(MessageConstant.USER_NOT_FOUND));
+        
+        if (user.getIsEmailVerified()) {
+            throw new BadRequestException(MessageConstant.EMAIL_ALREADY_VERIFIED);
         }
-
-        // Generate new verification code
-        String newCode = generateVerificationCode();
-        user.setCode(newCode);
-        user.setCodeExpiryDate(LocalDateTime.now().plusSeconds(verificationCodeExpirationMs / 1000));
+        
+        String verificationCode = generateVerificationCode();
+        user.setEmailVerificationCode(verificationCode);
+        user.setEmailVerificationExpiry(LocalDateTime.now().plusSeconds(verificationCodeExpiration / 1000));
         userRepository.save(user);
-
-        // Send verification email
-        emailService.sendVerificationEmail(user.getEmail(), user.getFullname(), newCode);
-
-        log.info("Verification code resent to: {}", request.getEmail());
+        
+        emailService.sendVerificationEmail(user.getEmail(), verificationCode);
     }
-
-    /**
-     * Request password reset
-     */
+    
     @Transactional
     public void forgotPassword(ForgotPasswordRequest request) {
-        log.info("Forgot password request for: {}", request.getEmail());
-
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + request.getEmail()));
-
-        // Check if account is active
-        if (!user.getIsActive()) {
-            throw new BadRequestException("Account is disabled. Please contact administrator");
-        }
-
-        // Generate reset code
-        String resetCode = generateVerificationCode();
-        user.setCode(resetCode);
-        user.setCodeExpiryDate(LocalDateTime.now().plusSeconds(verificationCodeExpirationMs / 1000));
+                .orElseThrow(() -> new ResourceNotFoundException(MessageConstant.USER_NOT_FOUND));
+        
+        String resetToken = UUID.randomUUID().toString();
+        user.setResetPasswordToken(resetToken);
+        user.setResetPasswordExpiry(LocalDateTime.now().plusMinutes(15));
         userRepository.save(user);
-
-        // Send password reset email
-        emailService.sendPasswordResetEmail(user.getEmail(), user.getFullname(), resetCode);
-
-        log.info("Password reset code sent to: {}", request.getEmail());
+        
+        emailService.sendPasswordResetEmail(user.getEmail(), resetToken);
     }
-
-    /**
-     * Reset password with code
-     */
+    
     @Transactional
     public void resetPassword(ResetPasswordRequest request) {
-        log.info("Reset password attempt for: {}", request.getEmail());
-
-        User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + request.getEmail()));
-
-        // Check reset code
-        if (user.getCode() == null || !user.getCode().equals(request.getCode())) {
-            throw new BadRequestException("Invalid reset code");
+        User user = userRepository.findByResetPasswordToken(request.getToken())
+                .orElseThrow(() -> new BadRequestException(MessageConstant.INVALID_RESET_TOKEN));
+        
+        if (user.getResetPasswordExpiry().isBefore(LocalDateTime.now())) {
+            throw new BadRequestException(MessageConstant.INVALID_RESET_TOKEN);
         }
-
-        // Check if code expired
-        if (user.getCodeExpiryDate().isBefore(LocalDateTime.now())) {
-            throw new BadRequestException("Reset code has expired. Please request a new code");
-        }
-
-        // Reset password
+        
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
-        user.setCode(null);
-        user.setCodeExpiryDate(null);
+        user.setResetPasswordToken(null);
+        user.setResetPasswordExpiry(null);
         userRepository.save(user);
-
-        // Delete all refresh tokens for this user (force re-login)
-        refreshTokenService.deleteByUserId(user.getId());
-
-        log.info("Password reset successfully for: {}", request.getEmail());
     }
-
-    /**
-     * Convert User entity to UserResponse DTO
-     */
-    private UserResponse convertToUserResponse(User user) {
-        return UserResponse.builder()
-                .id(user.getId())
-                .username(user.getUsername())
-                .email(user.getEmail())
-                .fullname(user.getFullname())
-                .mobile(user.getMobile())
-                .gender(user.getGender())
-                .address(user.getAddress())
-                .birthday(user.getBirthday())
-                .age(user.getAge())
-                .isActive(user.getIsActive())
-                .badPoint(user.getBadPoint())
-                .roles(user.getRoles().stream()
-                        .map(Role::getName)
-                        .toList())
-                .build();
+    
+    public LoginResponse refreshToken(RefreshTokenRequest request) {
+        return refreshTokenService.findByToken(request.getRefreshToken())
+                .map(refreshTokenService::verifyExpiration)
+                .map(RefreshToken::getUser)
+                .map(user -> {
+                    String accessToken = tokenProvider.generateTokenFromEmail(
+                            user.getEmail(), 
+                            user.getId(), 
+                            user.getRole().getName()
+                    );
+                    return LoginResponse.builder()
+                            .accessToken(accessToken)
+                            .refreshToken(request.getRefreshToken())
+                            .user(UserResponse.fromUser(user))
+                            .build();
+                })
+                .orElseThrow(() -> new BadRequestException("Refresh token không hợp lệ"));
     }
-
-    /**
-     * Generate 6-digit verification code
-     */
+    
     private String generateVerificationCode() {
         Random random = new Random();
         int code = 100000 + random.nextInt(900000);
         return String.valueOf(code);
     }
 }
+

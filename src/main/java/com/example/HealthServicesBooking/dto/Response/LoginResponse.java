@@ -1,4 +1,4 @@
-package com.example.HealthServicesBooking.dto.Response;
+package com.example.HealthServicesBooking.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -12,6 +12,10 @@ import lombok.NoArgsConstructor;
 public class LoginResponse {
     private String accessToken;
     private String refreshToken;
-    private String tokenType;
+    
+    @Builder.Default
+    private String tokenType = "Bearer";
+    
     private UserResponse user;
 }
+

@@ -3,72 +3,87 @@ package com.example.HealthServicesBooking.security.jwt;
 import com.example.HealthServicesBooking.security.CustomUserDetails;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
-import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
 
-import javax.crypto.SecretKey;
+import java.security.Key;
 import java.util.Date;
 
 @Component
 @Slf4j
 public class JwtTokenProvider {
-
-    @Value("${app.jwt.secret:mySecretKeyForHealthServicesBookingApplicationThatIsAtLeast256BitsLong}")
+    
+    @Value("${app.jwt.secret}")
     private String jwtSecret;
-
-    @Value("${app.jwt.expiration:86400000}") // 24 hours
+    
+    @Value("${app.jwt.expiration}")
     private long jwtExpirationMs;
-
-    private SecretKey key;
-
-    @PostConstruct
-    public void init() {
-        this.key = Keys.hmacShaKeyFor(jwtSecret.getBytes());
+    
+    private Key getSigningKey() {
+        return Keys.hmacShaKeyFor(jwtSecret.getBytes());
     }
-
-    /**
-     * Generate JWT token from user authentication
-     */
+    
     public String generateToken(Authentication authentication) {
-        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
-
+        CustomUserDetails userPrincipal = (CustomUserDetails) authentication.getPrincipal();
+        
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtExpirationMs);
-
+        
         return Jwts.builder()
-                .setSubject(userDetails.getUsername())
+                .setSubject(Long.toString(userPrincipal.getId()))
+                .claim("email", userPrincipal.getEmail())
+                .claim("role", userPrincipal.getRoleName())
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
-                .signWith(key, SignatureAlgorithm.HS512)
+                .signWith(getSigningKey(), SignatureAlgorithm.HS512)
                 .compact();
     }
-
-    /**
-     * Get username from JWT token
-     */
-    public String getUsernameFromToken(String token) {
+    
+    public String generateTokenFromEmail(String email, Long userId, String role) {
+        Date now = new Date();
+        Date expiryDate = new Date(now.getTime() + jwtExpirationMs);
+        
+        return Jwts.builder()
+                .setSubject(Long.toString(userId))
+                .claim("email", email)
+                .claim("role", role)
+                .setIssuedAt(now)
+                .setExpiration(expiryDate)
+                .signWith(getSigningKey(), SignatureAlgorithm.HS512)
+                .compact();
+    }
+    
+    public Long getUserIdFromToken(String token) {
         Claims claims = Jwts.parserBuilder()
-                .setSigningKey(key)
+                .setSigningKey(getSigningKey())
                 .build()
                 .parseClaimsJws(token)
                 .getBody();
-
-        return claims.getSubject();
+        
+        return Long.parseLong(claims.getSubject());
     }
-
-    /**
-     * Validate JWT token
-     */
+    
+    public String getEmailFromToken(String token) {
+        Claims claims = Jwts.parserBuilder()
+                .setSigningKey(getSigningKey())
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+        
+        return claims.get("email", String.class);
+    }
+    
     public boolean validateToken(String authToken) {
         try {
             Jwts.parserBuilder()
-                    .setSigningKey(key)
+                    .setSigningKey(getSigningKey())
                     .build()
                     .parseClaimsJws(authToken);
             return true;
+        } catch (SecurityException ex) {
+            log.error("Invalid JWT signature");
         } catch (MalformedJwtException ex) {
             log.error("Invalid JWT token");
         } catch (ExpiredJwtException ex) {
@@ -81,3 +96,4 @@ public class JwtTokenProvider {
         return false;
     }
 }
+

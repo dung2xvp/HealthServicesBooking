@@ -1,146 +1,70 @@
 package com.example.HealthServicesBooking.controller;
 
-import com.example.HealthServicesBooking.dto.Request.*;
-import com.example.HealthServicesBooking.dto.Response.LoginResponse;
-import com.example.HealthServicesBooking.dto.Response.UserResponse;
-import com.example.HealthServicesBooking.security.CustomUserDetails;
+import com.example.HealthServicesBooking.constant.MessageConstant;
+import com.example.HealthServicesBooking.dto.request.*;
+import com.example.HealthServicesBooking.dto.response.ApiResponse;
+import com.example.HealthServicesBooking.dto.response.LoginResponse;
+import com.example.HealthServicesBooking.dto.response.UserResponse;
 import com.example.HealthServicesBooking.service.AuthService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.HashMap;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
+@Tag(name = "Authentication", description = "APIs cho xác thực và quản lý tài khoản")
 public class AuthController {
-
+    
     private final AuthService authService;
-
-    /**
-     * POST /api/auth/register
-     * Register new user endpoint
-     */
+    
     @PostMapping("/register")
-    public ResponseEntity<Map<String, Object>> register(@Valid @RequestBody RegisterRequest request) {
-        UserResponse userResponse = authService.register(request);
-        
-        Map<String, Object> response = new HashMap<>();
-        response.put("message", "User registered successfully. Please check your email for verification code.");
-        response.put("user", userResponse);
-        
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    @Operation(summary = "Đăng ký tài khoản mới", description = "Tạo tài khoản mới cho Patient hoặc Doctor")
+    public ResponseEntity<ApiResponse<UserResponse>> register(@Valid @RequestBody RegisterRequest request) {
+        UserResponse user = authService.register(request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(MessageConstant.REGISTER_SUCCESS, user));
     }
-
-    /**
-     * POST /api/auth/verify-email
-     * Verify email with code
-     */
-    @PostMapping("/verify-email")
-    public ResponseEntity<Map<String, String>> verifyEmail(@Valid @RequestBody VerifyEmailRequest request) {
-        authService.verifyEmail(request);
-        
-        Map<String, String> response = new HashMap<>();
-        response.put("message", "Email verified successfully. Your account is now active.");
-        
-        return ResponseEntity.ok(response);
-    }
-
-    /**
-     * POST /api/auth/resend-code
-     * Resend verification code
-     */
-    @PostMapping("/resend-code")
-    public ResponseEntity<Map<String, String>> resendVerificationCode(@Valid @RequestBody ResendCodeRequest request) {
-        authService.resendVerificationCode(request);
-        
-        Map<String, String> response = new HashMap<>();
-        response.put("message", "Verification code has been resent to your email.");
-        
-        return ResponseEntity.ok(response);
-    }
-
-    /**
-     * POST /api/auth/login
-     * Login endpoint
-     */
+    
     @PostMapping("/login")
-    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
+    @Operation(summary = "Đăng nhập", description = "Đăng nhập vào hệ thống và nhận JWT token")
+    public ResponseEntity<ApiResponse<LoginResponse>> login(@Valid @RequestBody LoginRequest request) {
         LoginResponse response = authService.login(request);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ApiResponse.success(MessageConstant.LOGIN_SUCCESS, response));
     }
-
-    /**
-     * POST /api/auth/refresh-token
-     * Refresh access token using refresh token
-     */
-    @PostMapping("/refresh-token")
-    public ResponseEntity<LoginResponse> refreshToken(@Valid @RequestBody RefreshTokenRequest request) {
-        LoginResponse response = authService.refreshToken(request);
-        return ResponseEntity.ok(response);
+    
+    @PostMapping("/verify-email")
+    public ResponseEntity<ApiResponse<Void>> verifyEmail(@Valid @RequestBody VerifyEmailRequest request) {
+        authService.verifyEmail(request);
+        return ResponseEntity.ok(ApiResponse.success(MessageConstant.EMAIL_VERIFIED));
     }
-
-    /**
-     * POST /api/auth/logout
-     * Logout user by deleting refresh token
-     */
-    @PostMapping("/logout")
-    public ResponseEntity<Map<String, String>> logout() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        
-        if (authentication != null && authentication.getPrincipal() instanceof CustomUserDetails userDetails) {
-            authService.logout(userDetails.getId());
-        }
-        
-        Map<String, String> response = new HashMap<>();
-        response.put("message", "Logged out successfully");
-        
-        return ResponseEntity.ok(response);
+    
+    @PostMapping("/resend-verification-code")
+    public ResponseEntity<ApiResponse<Void>> resendVerificationCode(@Valid @RequestBody ResendCodeRequest request) {
+        authService.resendVerificationCode(request);
+        return ResponseEntity.ok(ApiResponse.success(MessageConstant.VERIFICATION_CODE_SENT));
     }
-
-    /**
-     * POST /api/auth/forgot-password
-     * Request password reset
-     */
+    
     @PostMapping("/forgot-password")
-    public ResponseEntity<Map<String, String>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+    public ResponseEntity<ApiResponse<Void>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
         authService.forgotPassword(request);
-        
-        Map<String, String> response = new HashMap<>();
-        response.put("message", "Password reset code has been sent to your email.");
-        
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ApiResponse.success(MessageConstant.PASSWORD_RESET_EMAIL_SENT));
     }
-
-    /**
-     * POST /api/auth/reset-password
-     * Reset password with code
-     */
+    
     @PostMapping("/reset-password")
-    public ResponseEntity<Map<String, String>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+    public ResponseEntity<ApiResponse<Void>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
         authService.resetPassword(request);
-        
-        Map<String, String> response = new HashMap<>();
-        response.put("message", "Password has been reset successfully. Please login with your new password.");
-        
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ApiResponse.success(MessageConstant.PASSWORD_RESET_SUCCESS));
     }
-
-    /**
-     * GET /api/auth/test
-     * Test endpoint
-     */
-    @GetMapping("/test")
-    public ResponseEntity<Map<String, String>> test() {
-        Map<String, String> response = new HashMap<>();
-        response.put("message", "Auth API is working!");
-        response.put("timestamp", java.time.LocalDateTime.now().toString());
-        return ResponseEntity.ok(response);
+    
+    @PostMapping("/refresh-token")
+    public ResponseEntity<ApiResponse<LoginResponse>> refreshToken(@Valid @RequestBody RefreshTokenRequest request) {
+        LoginResponse response = authService.refreshToken(request);
+        return ResponseEntity.ok(ApiResponse.success("Token đã được làm mới", response));
     }
 }
+

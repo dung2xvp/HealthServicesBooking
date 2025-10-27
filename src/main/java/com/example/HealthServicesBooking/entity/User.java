@@ -2,172 +2,70 @@ package com.example.HealthServicesBooking.entity;
 
 import com.example.HealthServicesBooking.entity.base.BaseEntity;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
-import java.time.LocalDate;
-import java.time.Period;
-import java.util.HashSet;
-import java.util.Set;
+import java.time.LocalDateTime;
 
-/**
- * Entity User - Đại diện cho người dùng trong hệ thống
- * Bao gồm: Bệnh nhân, Bác sĩ, Admin
- */
 @Entity
-@Table(name = "user")
-@Data
-@EqualsAndHashCode(callSuper = true)
+@Table(name = "users")
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class User extends BaseEntity {
-
-    // ==================== THÔNG TIN ĐĂNG NHẬP ====================
-
-    @Column(name = "username", unique = true, length = 255)
-    private String username;
-
-    @Column(name = "email", unique = true, length = 255)
+    
+    @Column(name = "email", unique = true, nullable = false)
     private String email;
-
-    @Column(name = "password", length = 255)
+    
+    @Column(name = "password", nullable = false)
     private String password;
-
-    // ==================== THÔNG TIN CÁ NHÂN ====================
-
-    @Column(name = "fullname", length = 255)
-    private String fullname;
-
-    /**
-     * Gender: 0 = Nữ, 1 = Nam, 2 = Khác
-     */
+    
+    @Column(name = "full_name", nullable = false)
+    private String fullName;
+    
+    @Column(name = "phone_number", unique = true)
+    private String phoneNumber;
+    
+    @Column(name = "date_of_birth")
+    private LocalDateTime dateOfBirth;
+    
     @Column(name = "gender")
-    private Integer gender;
-
-    @Column(name = "mobile", length = 255)
-    private String mobile;
-
-    @Column(name = "birthday")
-    private LocalDate birthday;
-
-    @Column(name = "age")
-    private Integer age;
-
-    @Column(name = "address", length = 255)
+    @Enumerated(EnumType.STRING)
+    private Gender gender;
+    
+    @Column(name = "address")
     private String address;
-
-    @Column(name = "facebook", length = 255)
-    private String facebook;
-
-    // ==================== BẢO MẬT & XÁC THỰC ====================
-
-    /**
-     * Mã code xác thực (6 chữ số)
-     * Dùng cho: Verify email, Reset password
-     */
-    @Column(name = "code", length = 255)
-    private String code;
-
-    /**
-     * Thời gian hết hạn của code
-     */
-    @Column(name = "code_expiry_date")
-    private java.time.LocalDateTime codeExpiryDate;
-
-    /**
-     * Email đã được xác thực chưa
-     */
-    @Column(name = "email_verified", columnDefinition = "BOOLEAN DEFAULT FALSE")
-    private Boolean emailVerified = false;
-
-    /**
-     * Điểm vi phạm (số lần không đến khám)
-     * Nếu > 3 → Tự động khóa tài khoản
-     */
-    @Column(name = "bad_point", columnDefinition = "INT DEFAULT 0")
-    private Integer badPoint = 0;
-
-    // ==================== QUAN HỆ ====================
-
-    /**
-     * Quan hệ Many-to-Many với Role
-     * Một user có thể có nhiều roles
-     * Một role có thể thuộc nhiều users
-     */
-    @ManyToMany(fetch = FetchType.LAZY, cascade = {CascadeType.PERSIST, CascadeType.MERGE})
-    @JoinTable(
-            name = "user_role",
-            joinColumns = @JoinColumn(name = "user_id"),
-            inverseJoinColumns = @JoinColumn(name = "role_id")
-    )
-    private Set<Role> roles = new HashSet<>();
-
-    // ==================== HELPER METHODS ====================
-
-    /**
-     * Thêm role cho user
-     */
-    public void addRole(Role role) {
-        this.roles.add(role);
-        role.getUsers().add(this);
-    }
-
-    /**
-     * Xóa role khỏi user
-     */
-    public void removeRole(Role role) {
-        this.roles.remove(role);
-        role.getUsers().remove(this);
-    }
-
-    /**
-     * Kiểm tra user có role cụ thể không
-     */
-    public boolean hasRole(String roleName) {
-        return this.roles.stream()
-                .anyMatch(role -> role.getName().equals(roleName));
-    }
-
-    /**
-     * Tăng bad point và tự động khóa nếu > 3
-     */
-    public void incrementBadPoint() {
-        this.badPoint++;
-        if (this.badPoint > 3) {
-            this.setIsActive(false);
-            this.setDeleteBy("SYSTEM_AUTO_LOCK");
-        }
-    }
-
-    /**
-     * Reset bad point (cho admin)
-     */
-    public void resetBadPoint() {
-        this.badPoint = 0;
-        if (!this.getIsActive()) {
-            this.setIsActive(true);
-            this.setDeleteBy(null);
-        }
-    }
-
-    /**
-     * Tính tuổi từ ngày sinh
-     */
-    public void calculateAge() {
-        if (this.birthday != null) {
-            this.age = Period.between(this.birthday, LocalDate.now()).getYears();
-        }
-    }
-
-    /**
-     * Lấy tuổi hiện tại (tính real-time từ birthday)
-     */
-    public Integer getCurrentAge() {
-        if (this.birthday != null) {
-            return Period.between(this.birthday, LocalDate.now()).getYears();
-        }
-        return this.age;
+    
+    @Column(name = "avatar_url")
+    private String avatarUrl;
+    
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "role_id", nullable = false)
+    private Role role;
+    
+    @Column(name = "is_email_verified")
+    @Builder.Default
+    private Boolean isEmailVerified = false;
+    
+    @Column(name = "email_verification_code")
+    private String emailVerificationCode;
+    
+    @Column(name = "email_verification_expiry")
+    private LocalDateTime emailVerificationExpiry;
+    
+    @Column(name = "reset_password_token")
+    private String resetPasswordToken;
+    
+    @Column(name = "reset_password_expiry")
+    private LocalDateTime resetPasswordExpiry;
+    
+    @Column(name = "is_active")
+    @Builder.Default
+    private Boolean isActive = true;
+    
+    public enum Gender {
+        MALE, FEMALE, OTHER
     }
 }
+

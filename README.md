@@ -1,278 +1,363 @@
 # Health Services Booking API
 
-Hệ thống API đặt lịch khám bệnh với Spring Boot 3.5.6, JWT Authentication, Email Verification, và Refresh Token.
+Hệ thống đặt lịch khám bệnh trực tuyến được xây dựng với Spring Boot.
 
-## 🚀 Quick Start (Test ngay trong 5 phút)
+## 🚀 Tính năng chính
 
-### Bước 1: Tạo Database
-```bash
-mysql -u root -p -e "CREATE DATABASE healthservicesbooking;"
-```
+### 👥 Quản lý người dùng
+- ✅ Đăng ký tài khoản (Bệnh nhân & Bác sĩ)
+- ✅ Đăng nhập với JWT authentication
+- ✅ Xác thực email với mã OTP
+- ✅ Quên mật khẩu & Khôi phục mật khẩu
+- ✅ Refresh token
 
-### Bước 2: Chạy Application
-```bash
-mvn spring-boot:run
-```
+### 🏥 Quản lý cơ sở y tế
+- ✅ CRUD cơ sở y tế (Bệnh viện, Phòng khám, Trung tâm y tế)
+- ✅ Quản lý thông tin liên hệ, địa chỉ, giờ mở cửa
 
-### Bước 3: Test API
-```bash
-curl http://localhost:8080/api/auth/test
-```
+### 💊 Quản lý dịch vụ y tế
+- ✅ CRUD dịch vụ y tế
+- ✅ Các loại dịch vụ: Khám tổng quát, Chuyên khoa, Xét nghiệm, Chẩn đoán hình ảnh, Tiêm chủng, v.v.
+- ✅ Quản lý giá cả và thời gian khám
 
-**Nếu thấy `"Auth API is working!"` → ✅ Bạn đã sẵn sàng test!**
+### 👨‍⚕️ Quản lý bác sĩ
+- ✅ Hồ sơ bác sĩ với chuyên khoa, bằng cấp, kinh nghiệm
+- ✅ Lịch làm việc của bác sĩ
+- ✅ Phí tư vấn
+- ✅ Trạng thái hoạt động
 
----
+### 📅 Đặt lịch hẹn
+- ✅ Bệnh nhân đặt lịch hẹn với bác sĩ
+- ✅ Kiểm tra xung đột thời gian
+- ✅ Trạng thái lịch hẹn: Chờ xác nhận, Đã xác nhận, Đang khám, Hoàn thành, Đã hủy
+- ✅ Xác nhận lịch hẹn qua email
+- ✅ Hủy lịch hẹn
 
-## 📚 Documentation
+### 💰 Thanh toán
+- ✅ Tạo thông tin thanh toán tự động khi đặt lịch
+- ✅ Các phương thức thanh toán: Tiền mặt, Thẻ, Chuyển khoản, VNPay, MoMo
+- ✅ Trạng thái thanh toán
 
-- **[QUICK_START.md](QUICK_START.md)** - Hướng dẫn setup và test chi tiết
-- **[API_DOCUMENTATION.md](API_DOCUMENTATION.md)** - API documentation đầy đủ
-- **[CHANGELOG.md](CHANGELOG.md)** - Chi tiết tất cả thay đổi và cải tiến
+### 📋 Hồ sơ khám bệnh
+- ✅ Bác sĩ tạo và cập nhật hồ sơ khám bệnh
+- ✅ Chẩn đoán, triệu chứng, điều trị, đơn thuốc
+- ✅ Kết quả xét nghiệm
+- ✅ Hướng dẫn tái khám
+- ✅ Lịch sử khám bệnh của bệnh nhân
 
----
+### 📧 Thông báo Email
+- ✅ Email xác thực tài khoản
+- ✅ Email khôi phục mật khẩu
+- ✅ Email xác nhận lịch hẹn
 
-## 🔧 Configuration
+## 🏗️ Công nghệ sử dụng
 
-### Development (Mặc định)
-Không cần config gì! Dùng luôn với:
-- Database: `localhost:3306/healthservicesbooking`
-- User: `root` / Password: `root`
-- Email: Không cần (skip email sending)
+- **Backend Framework**: Spring Boot 3.5.6
+- **Database**: MySQL
+- **Security**: Spring Security + JWT
+- **Email**: Spring Mail (SMTP)
+- **ORM**: Spring Data JPA / Hibernate
+- **Validation**: Jakarta Validation
+- **Build Tool**: Maven
+- **Java Version**: 17
 
-### Production
-Set environment variables trong `.env`:
-```env
-DB_URL=jdbc:mysql://localhost:3306/healthservicesbooking
-DB_USERNAME=root
-DB_PASSWORD=your_password
-JWT_SECRET=your_secure_secret_key
-MAIL_USERNAME=your-email@gmail.com
-MAIL_PASSWORD=your-app-password
-```
-
----
-
-## 🧪 Testing
-
-### Option 1: Bash Script (Tự động)
-```bash
-chmod +x test-api.sh
-./test-api.sh
-```
-
-### Option 2: Postman
-Import file: `Health-Services-Booking.postman_collection.json`
-
-### Option 3: Manual cURL
-Xem chi tiết trong [QUICK_START.md](QUICK_START.md)
-
-### Option 4: SQL Helpers
-```bash
-mysql -u root -p healthservicesbooking < test-helpers.sql
-```
-
----
-
-## 🎯 Các tính năng chính
-
-- ✅ JWT Authentication với Refresh Token
-- ✅ Email Verification (6-digit code)
-- ✅ Forgot Password / Reset Password
-- ✅ Role-Based Access Control (ADMIN, DOCTOR, PATIENT)
-- ✅ Account Status Check (Active/Inactive)
-- ✅ Auto Lock sau 3 violations
-- ✅ Async Email Sending
-- ✅ Environment Variables cho Security
-- ✅ Auto Initialize Default Roles
-
----
-
-## 📋 API Endpoints
-
-| Method | Endpoint | Mô tả | Auth |
-|--------|----------|-------|------|
-| POST | `/api/auth/register` | Đăng ký | ❌ |
-| POST | `/api/auth/verify-email` | Verify email | ❌ |
-| POST | `/api/auth/resend-code` | Gửi lại code | ❌ |
-| POST | `/api/auth/login` | Đăng nhập | ❌ |
-| POST | `/api/auth/refresh-token` | Refresh token | ❌ |
-| POST | `/api/auth/logout` | Đăng xuất | ✅ |
-| POST | `/api/auth/forgot-password` | Quên mật khẩu | ❌ |
-| POST | `/api/auth/reset-password` | Reset mật khẩu | ❌ |
-
-Xem chi tiết trong [API_DOCUMENTATION.md](API_DOCUMENTATION.md)
-
----
-
-## 🛠️ Tech Stack
-
-- **Java 17**
-- **Spring Boot 3.5.6**
-- **Spring Security + JWT**
-- **MySQL 8.0**
-- **Lombok**
-- **Spring Mail**
-- **Maven**
-
----
-
-## 📝 Database Schema
-
-Các bảng chính:
-- `user` - Thông tin users (với email verification)
-- `role` - Roles (ADMIN, DOCTOR, PATIENT)
-- `user_role` - Many-to-many relationship
-- `refresh_token` - Refresh tokens với expiration
-
----
-
-## 🔒 Security Features
-
-1. **Environment Variables** - Sensitive data không hardcode
-2. **Email Verification** - Bắt buộc verify email
-3. **Password Encryption** - BCrypt
-4. **JWT Tokens** - Access Token (24h) + Refresh Token (7 ngày)
-5. **Account Status Check** - Không cho login nếu bị khóa
-6. **Code Expiration** - Verification/Reset codes hết hạn sau 5 phút
-7. **Auto Logout** - Force logout tất cả devices sau reset password
-
----
-
-## 💡 Quick Example
-
-### Đăng ký và Login
-```bash
-# 1. Đăng ký
-curl -X POST http://localhost:8080/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "username": "demo",
-    "email": "demo@test.com",
-    "password": "demo123",
-    "fullname": "Demo User",
-    "mobile": "0999999999"
-  }'
-
-# 2. Lấy verification code từ database
-mysql -u root -p -e "SELECT code FROM healthservicesbooking.user WHERE username='demo';"
-
-# 3. Verify email
-curl -X POST http://localhost:8080/api/auth/verify-email \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "demo@test.com",
-    "code": "CODE_FROM_STEP_2"
-  }'
-
-# 4. Login
-curl -X POST http://localhost:8080/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "username": "demo",
-    "password": "demo123"
-  }'
-```
-
----
-
-## 🎓 Best Practices Applied
-
-- ✅ Clean Architecture (Controller → Service → Repository)
-- ✅ DTO Pattern
-- ✅ Global Exception Handling
-- ✅ Bean Validation
-- ✅ Transaction Management
-- ✅ Lazy Loading với JOIN FETCH
-- ✅ Async Processing
-- ✅ Proper Logging
-- ✅ Profile-based Configuration
-
----
-
-## 🐛 Troubleshooting
-
-### API không chạy?
-```bash
-# Check MySQL
-sudo systemctl status mysql
-
-# Check port 8080
-netstat -ano | findstr :8080
-```
-
-### Email không gửi được?
-- Không sao! API vẫn hoạt động bình thường
-- Lấy code từ database để test
-- Xem [QUICK_START.md](QUICK_START.md) section Email Configuration
-
-### Database connection error?
-- Check MySQL đang chạy
-- Check credentials trong `application-dev.properties`
-- Đảm bảo database `healthservicesbooking` đã được tạo
-
----
-
-## 📊 Project Structure
+## 📦 Cấu trúc dự án
 
 ```
 src/main/java/com/example/HealthServicesBooking/
-├── config/              # Configuration classes
-├── constant/            # Constants
+├── config/              # Cấu hình (Security, Web, DataInitializer)
+├── constant/            # Hằng số (Messages, Roles, App)
 ├── controller/          # REST Controllers
+│   ├── AuthController.java
+│   ├── AdminController.java
+│   ├── DoctorController.java
+│   └── PatientController.java
 ├── dto/                 # Data Transfer Objects
-│   ├── Request/
-│   └── Response/
+│   ├── request/
+│   └── response/
 ├── entity/              # JPA Entities
-├── exception/           # Exception Handling
-├── repository/          # Data Access Layer
+│   ├── base/
+│   ├── User.java
+│   ├── Role.java
+│   ├── HealthFacility.java
+│   ├── MedicalService.java
+│   ├── Doctor.java
+│   ├── Patient.java
+│   ├── Appointment.java
+│   ├── Payment.java
+│   ├── MedicalRecord.java
+│   └── RefreshToken.java
+├── exception/           # Exception handling
+├── repository/          # JPA Repositories
 ├── security/            # Security & JWT
-│   └── jwt/
-└── service/             # Business Logic
+└── service/             # Business logic
 ```
 
----
+## 🔧 Cài đặt và Chạy dự án
 
-## 🔜 Recommended Next Steps
+### Yêu cầu hệ thống
+- Java 17 hoặc cao hơn
+- MySQL 8.0 hoặc cao hơn
+- Maven 3.6 hoặc cao hơn
 
-1. 🧪 **Unit Tests** - Viết tests cho services
-2. 📊 **Swagger UI** - API documentation interface  
-3. 🔄 **Flyway** - Database migration management
-4. 🚦 **Rate Limiting** - Prevent brute force attacks
-5. 📄 **Pagination** - For list endpoints
-6. 💾 **Redis** - Caching layer
-
----
-
-## 📞 Support
-
-- Documentation: Xem các file `.md` trong project
-- Issues: Check console logs và database
-- Email: support@healthservices.com
-
----
-
-## 📄 License
-
-MIT License - Free to use and modify
-
----
-
-## 🎉 Ready to Test!
-
-Tất cả đã setup xong! Chạy:
+### 1. Clone repository
 
 ```bash
+git clone <repository-url>
+cd HealthServicesBooking
+```
+
+### 2. Cấu hình database
+
+Tạo database MySQL:
+
+```sql
+CREATE DATABASE healthservicesbooking;
+```
+
+Cập nhật thông tin database trong `application.properties`:
+
+```properties
+spring.datasource.url=jdbc:mysql://localhost:3306/healthservicesbooking
+spring.datasource.username=root
+spring.datasource.password=your_password
+```
+
+### 3. Cấu hình email (Optional)
+
+Cập nhật cấu hình email trong `application.properties`:
+
+```properties
+spring.mail.username=your-email@gmail.com
+spring.mail.password=your-app-password
+```
+
+**Lưu ý**: Để gửi email qua Gmail, bạn cần:
+- Bật "2-Step Verification" trong tài khoản Google
+- Tạo "App Password" và sử dụng password đó
+
+### 4. Build và chạy
+
+```bash
+# Build project
+mvn clean install
+
+# Chạy application
 mvn spring-boot:run
 ```
 
-Sau đó test với:
-```bash
-curl http://localhost:8080/api/auth/test
+Application sẽ chạy tại: `http://localhost:8080`
+
+## 👤 Tài khoản mặc định
+
+Sau khi chạy lần đầu, hệ thống sẽ tự động tạo các tài khoản mặc định:
+
+### Admin
+- **Email**: admin@healthservices.com
+- **Password**: admin123
+
+### Bác sĩ
+- **Email**: doctor@healthservices.com
+- **Password**: doctor123
+
+### Bệnh nhân
+- **Email**: patient@healthservices.com
+- **Password**: patient123
+
+## 📚 API Endpoints
+
+### Authentication (`/api/auth`)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/register` | Đăng ký tài khoản |
+| POST | `/login` | Đăng nhập |
+| POST | `/verify-email` | Xác thực email |
+| POST | `/resend-verification-code` | Gửi lại mã xác thực |
+| POST | `/forgot-password` | Quên mật khẩu |
+| POST | `/reset-password` | Khôi phục mật khẩu |
+| POST | `/refresh-token` | Làm mới token |
+
+### Patient Endpoints (`/api/patient`)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/appointments` | Đặt lịch hẹn |
+| GET | `/appointments` | Xem danh sách lịch hẹn |
+| GET | `/appointments/{id}` | Xem chi tiết lịch hẹn |
+| DELETE | `/appointments/{id}` | Hủy lịch hẹn |
+| GET | `/medical-records` | Xem lịch sử khám bệnh |
+| GET | `/medical-records/{id}` | Xem chi tiết hồ sơ khám bệnh |
+
+### Doctor Endpoints (`/api/doctor`)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/appointments` | Xem danh sách lịch hẹn |
+| GET | `/appointments/{id}` | Xem chi tiết lịch hẹn |
+| PATCH | `/appointments/{id}/status` | Cập nhật trạng thái lịch hẹn |
+| POST | `/medical-records` | Tạo hồ sơ khám bệnh |
+| PUT | `/medical-records/{id}` | Cập nhật hồ sơ khám bệnh |
+| GET | `/medical-records/{id}` | Xem chi tiết hồ sơ khám bệnh |
+
+### Admin Endpoints (`/api/admin`)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/users` | Xem danh sách người dùng |
+| GET | `/users/{id}` | Xem chi tiết người dùng |
+| PATCH | `/users/{id}/activate` | Kích hoạt/Vô hiệu hóa tài khoản |
+| GET | `/facilities` | Xem danh sách cơ sở y tế |
+| POST | `/facilities` | Tạo cơ sở y tế |
+| PUT | `/facilities/{id}` | Cập nhật cơ sở y tế |
+| DELETE | `/facilities/{id}` | Xóa cơ sở y tế |
+| GET | `/services` | Xem danh sách dịch vụ |
+| POST | `/services` | Tạo dịch vụ |
+| PUT | `/services/{id}` | Cập nhật dịch vụ |
+| DELETE | `/services/{id}` | Xóa dịch vụ |
+| GET | `/doctors` | Xem danh sách bác sĩ |
+| PATCH | `/doctors/{id}/availability` | Cập nhật trạng thái bác sĩ |
+| GET | `/appointments` | Xem tất cả lịch hẹn |
+| GET | `/appointments/status/{status}` | Lọc lịch hẹn theo trạng thái |
+
+## 🔒 Authentication
+
+API sử dụng JWT (JSON Web Token) cho authentication.
+
+### Cách sử dụng:
+
+1. Đăng nhập để nhận access token:
+```json
+POST /api/auth/login
+{
+  "email": "patient@healthservices.com",
+  "password": "patient123"
+}
 ```
 
-**Chúc bạn code vui vẻ! 🚀**
+2. Thêm token vào header của các request tiếp theo:
+```
+Authorization: Bearer <your-access-token>
+```
+
+3. Khi access token hết hạn, sử dụng refresh token để lấy token mới:
+```json
+POST /api/auth/refresh-token
+{
+  "refreshToken": "<your-refresh-token>"
+}
+```
+
+## 📝 Request/Response Examples
+
+### 1. Đăng ký tài khoản
+
+**Request:**
+```json
+POST /api/auth/register
+{
+  "email": "newpatient@example.com",
+  "password": "password123",
+  "fullName": "Nguyễn Văn A",
+  "phoneNumber": "0901234567",
+  "role": "PATIENT"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Đăng ký thành công! Vui lòng kiểm tra email để xác thực tài khoản.",
+  "data": {
+    "id": 1,
+    "email": "newpatient@example.com",
+    "fullName": "Nguyễn Văn A",
+    "phoneNumber": "0901234567",
+    "role": "ROLE_PATIENT",
+    "isEmailVerified": false,
+    "isActive": true
+  }
+}
+```
+
+### 2. Đặt lịch hẹn
+
+**Request:**
+```json
+POST /api/patient/appointments
+Authorization: Bearer <token>
+
+{
+  "doctorId": 1,
+  "serviceId": 2,
+  "facilityId": 1,
+  "appointmentDate": "2024-12-25T10:00:00",
+  "reason": "Khám tim mạch định kỳ",
+  "notes": "Có tiền sử bệnh tim"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Đặt lịch hẹn thành công.",
+  "data": {
+    "id": 1,
+    "appointmentDate": "2024-12-25T10:00:00",
+    "status": "PENDING",
+    "reason": "Khám tim mạch định kỳ",
+    "notes": "Có tiền sử bệnh tim"
+  }
+}
+```
+
+## 🐛 Error Handling
+
+API trả về error responses theo format:
+
+```json
+{
+  "timestamp": "2024-10-25T10:30:00",
+  "status": 400,
+  "error": "Bad Request",
+  "message": "Email đã tồn tại trong hệ thống",
+  "path": "/api/auth/register"
+}
+```
+
+### HTTP Status Codes
+
+- `200 OK` - Request thành công
+- `201 Created` - Tạo resource thành công
+- `400 Bad Request` - Request không hợp lệ
+- `401 Unauthorized` - Chưa xác thực
+- `403 Forbidden` - Không có quyền truy cập
+- `404 Not Found` - Không tìm thấy resource
+- `500 Internal Server Error` - Lỗi server
+
+## 🧪 Testing
+
+Bạn có thể test API bằng:
+- **Postman**: Import các endpoints và test
+- **curl**: Command line testing
+- **Swagger UI** (nếu được cấu hình): `http://localhost:8080/swagger-ui.html`
+
+## 📄 License
+
+MIT License
+
+## 👨‍💻 Developer
+
+Phát triển bởi [Your Name]
+
+## 📞 Liên hệ
+
+- Email: support@healthservices.com
+- GitHub: [Your GitHub]
 
 ---
 
-*Được tạo với ❤️ bằng Spring Boot*
+**Note**: Đây là dự án demo/học tập. Không nên sử dụng trực tiếp cho production mà không có các biện pháp bảo mật bổ sung.
 
